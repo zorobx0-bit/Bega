@@ -1,0 +1,297 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>توزيع المبيعات</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap">
+<style>
+/* Layout: sticky toolbar (search + filters) over a scrollable ledger table, totals strip on top. Blue-only palette. */
+:root {
+  --bg: #eaf2fd;
+  --surface: #ffffff;
+  --fg: #0a2a55;
+  --muted: #4d6c96;
+  --accent: #1f5fd0;
+  --accent-fg: #ffffff;
+  --head: #174aa6;
+  --head-fg: #ffffff;
+  --line: #c9d9f1;
+  --row-alt: #f3f8ff;
+  --row-hover: #dfeafb;
+  --pill-1: #d6e5fb;
+  --pill-2: #a9c8f5;
+  --pill-3: #1f5fd0;
+  --pill-3-fg: #ffffff;
+  --font-display: "Cairo", "Segoe UI", Tahoma, sans-serif;
+  --font-body: "Tajawal", "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #071a35; --surface: #0d2347; --fg: #dce9fc; --muted: #8fb0dc; --accent: #5c9bff; --accent-fg: #06162e;
+    --head: #14346b; --head-fg: #e6f0ff; --line: #1d3b6c; --row-alt: #0b1f40; --row-hover: #153062;
+    --pill-1: #17376b; --pill-2: #24508f; --pill-3: #5c9bff; --pill-3-fg: #06162e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #071a35; --surface: #0d2347; --fg: #dce9fc; --muted: #8fb0dc; --accent: #5c9bff; --accent-fg: #06162e;
+  --head: #14346b; --head-fg: #e6f0ff; --line: #1d3b6c; --row-alt: #0b1f40; --row-hover: #153062;
+  --pill-1: #17376b; --pill-2: #24508f; --pill-3: #5c9bff; --pill-3-fg: #06162e; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 2px 0 0; font-size: 14px; }
+.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; }
+
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tot { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 0; }
+.tot span { display: block; color: var(--muted); font-size: 13px; }
+.tot b { font-family: var(--font-display); font-size: 20px; font-variant-numeric: tabular-nums; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 140px; }
+.field.grow { flex: 2 1 240px; }
+.field label { font-size: 12px; color: var(--muted); font-weight: 500; }
+input, select, button { font: inherit; color: var(--fg); }
+input, select {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-width: 0; width: 100%;
+}
+input::placeholder { color: var(--muted); opacity: .8; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn {
+  background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-weight: 700; align-self: end;
+}
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn:hover { filter: brightness(1.08); }
+
+.addform { display: none; flex-wrap: wrap; gap: 10px; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 12px; }
+.addform.open { display: flex; }
+
+.tablebox { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 880px; }
+thead th {
+  position: sticky; top: 0; background: var(--head); color: var(--head-fg); text-align: right; font-family: var(--font-display);
+  font-weight: 600; font-size: 14px; padding: 10px 12px; white-space: nowrap; user-select: none;
+}
+thead th.sortable { cursor: pointer; }
+thead th.sortable:hover { filter: brightness(1.15); }
+tbody td { padding: 9px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr:hover { background: var(--row-hover); }
+td.idx { color: var(--muted); font-variant-numeric: tabular-nums; width: 48px; text-align: center; font-weight: 700; }
+th.idx { text-align: center; }
+td.num, td.phone { font-variant-numeric: tabular-nums; }
+td.phone { direction: ltr; text-align: right; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; }
+.st-paid { background: var(--pill-3); color: var(--pill-3-fg); }
+.st-part { background: var(--pill-2); color: var(--fg); }
+.st-none { background: var(--pill-1); color: var(--fg); border: 1px dashed var(--accent); }
+.del { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.del:hover { color: var(--accent); background: var(--pill-1); }
+.empty { padding: 28px; text-align: center; color: var(--muted); }
+.foot { color: var(--muted); font-size: 13px; }
+mark { background: var(--pill-2); color: inherit; border-radius: 3px; padding: 0 2px; }
+</style>
+
+<div class="wrap" dir="rtl">
+  <div class="top">
+    <div>
+      <h1>توزيع المبيعات على أصحاب المحلات</h1>
+      <p class="sub">ابحث بالاسم أو رقم التليفون، وفلتر بالمنطقة أو الصنف أو حالة السداد. البيانات الحالية أمثلة، عدّلها أو امسحها.</p>
+    </div>
+    <button class="btn" id="toggleAdd" type="button">+ إضافة صاحب محل</button>
+  </div>
+
+  <form class="addform" id="addForm">
+    <div class="field grow"><label for="aName">اسم صاحب المحل</label><input id="aName" required></div>
+    <div class="field"><label for="aShop">اسم المحل</label><input id="aShop"></div>
+    <div class="field"><label for="aPhone">رقم التليفون</label><input id="aPhone" inputmode="tel" required></div>
+    <div class="field"><label for="aArea">المنطقة</label><input id="aArea"></div>
+    <div class="field"><label for="aProd">الصنف</label><input id="aProd"></div>
+    <div class="field"><label for="aQty">الكمية</label><input id="aQty" type="number" min="0" value="1"></div>
+    <div class="field"><label for="aPrice">سعر الوحدة (ج.م)</label><input id="aPrice" type="number" min="0" value="0"></div>
+    <div class="field"><label for="aPaid">المدفوع (ج.م)</label><input id="aPaid" type="number" min="0" value="0"></div>
+    <button class="btn" type="submit">حفظ</button>
+  </form>
+
+  <div class="totals">
+    <div class="tot"><span>عدد المحلات</span><b id="tCount">0</b></div>
+    <div class="tot"><span>إجمالي المبيعات</span><b id="tTotal">0</b></div>
+    <div class="tot"><span>المدفوع</span><b id="tPaid">0</b></div>
+    <div class="tot"><span>المتبقي</span><b id="tLeft">0</b></div>
+  </div>
+
+  <div class="bar">
+    <div class="field grow"><label for="q">بحث بالاسم أو رقم التليفون</label><input id="q" type="search" placeholder="مثال: أحمد أو 01012"></div>
+    <div class="field"><label for="fArea">المنطقة</label><select id="fArea"></select></div>
+    <div class="field"><label for="fProd">الصنف</label><select id="fProd"></select></div>
+    <div class="field"><label for="fStat">حالة السداد</label>
+      <select id="fStat"><option value="">الكل</option><option value="paid">مسدد</option><option value="part">سداد جزئي</option><option value="none">غير مسدد</option></select>
+    </div>
+    <button class="btn ghost" id="reset" type="button">مسح الفلاتر</button>
+  </div>
+
+  <div class="tablebox">
+    <table>
+      <thead>
+        <tr>
+          <th class="idx">م</th>
+          <th class="sortable" data-k="name">صاحب المحل ⇅</th>
+          <th>المحل</th>
+          <th>التليفون</th>
+          <th class="sortable" data-k="area">المنطقة ⇅</th>
+          <th>الصنف</th>
+          <th class="sortable" data-k="qty">الكمية ⇅</th>
+          <th class="sortable" data-k="total">الإجمالي ⇅</th>
+          <th class="sortable" data-k="paid">المدفوع ⇅</th>
+          <th class="sortable" data-k="left">المتبقي ⇅</th>
+          <th>الحالة</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>لا توجد نتائج مطابقة. جرّب كلمة بحث أخرى أو امسح الفلاتر.</div>
+  </div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+(function () {
+  var KEY = "sales-distribution-v1";
+  var sample = [
+    ["أحمد محمود", "سوبر ماركت النور", "01012345678", "مدينة نصر", "زيت", 40, 85, 3400],
+    ["محمد السيد", "بقالة السلام", "01123456789", "المعادي", "سكر", 60, 32, 960],
+    ["خالد إبراهيم", "هايبر الأمل", "01234567890", "الهرم", "أرز", 100, 28, 2800],
+    ["علي حسن", "محل حسن للتموين", "01098765432", "مدينة نصر", "سكر", 30, 32, 0],
+    ["مصطفى كمال", "ميني ماركت الفجر", "01511122233", "الهرم", "زيت", 25, 85, 2125],
+    ["إسلام عادل", "بقالة عادل", "01022233344", "المعادي", "أرز", 45, 28, 600],
+    ["حسام فتحي", "سوبر ماركت فتحي", "01155566677", "شبرا", "مكرونة", 80, 14, 1120],
+    ["عمرو سعيد", "تموين سعيد", "01288899900", "شبرا", "زيت", 20, 85, 0],
+    ["ياسر جمال", "هايبر الجمال", "01044455566", "مدينة نصر", "مكرونة", 120, 14, 1680],
+    ["طارق نبيل", "بقالة النيل", "01177788899", "المعادي", "زيت", 35, 85, 1500],
+    ["وائل رمضان", "ميني ماركت رمضان", "01500011122", "الهرم", "سكر", 50, 32, 1600],
+    ["سامح عبد الله", "محل الأمانة", "01233344455", "شبرا", "أرز", 70, 28, 1000]
+  ];
+  var data = [];
+  try { var s = localStorage.getItem(KEY); if (s) data = JSON.parse(s); } catch (e) {}
+  if (!data || !data.length) {
+    data = sample.map(function (r, i) {
+      return { id: i + 1, name: r[0], shop: r[1], phone: r[2], area: r[3], prod: r[4], qty: r[5], price: r[6], paid: r[7] };
+    });
+  }
+  var nextId = data.reduce(function (m, r) { return Math.max(m, r.id || 0); }, 0) + 1;
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var sortKey = "", sortDir = 1, pendingDel = null;
+
+  function total(r) { return (+r.qty || 0) * (+r.price || 0); }
+  function left(r) { return Math.max(total(r) - (+r.paid || 0), 0); }
+  function status(r) { var t = total(r), p = +r.paid || 0; if (t > 0 && p >= t) return "paid"; if (p <= 0) return "none"; return "part"; }
+  var stLabel = { paid: "مسدد", part: "سداد جزئي", none: "غير مسدد" };
+  var fmt = function (n) { return Number(n).toLocaleString("en-US"); };
+  function digits(s) {
+    return String(s).replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); })
+                    .replace(/[۰-۹]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); });
+  }
+  function norm(s) {
+    return digits(s).toLowerCase().replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[ً-ْ]/g, "").trim();
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function hl(text, q) {
+    var t = esc(text); if (!q) return t;
+    var nt = norm(text), i = nt.indexOf(q);
+    if (i < 0 || nt.length !== String(text).length) return t;
+    var raw = String(text);
+    return esc(raw.slice(0, i)) + "<mark>" + esc(raw.slice(i, i + q.length)) + "</mark>" + esc(raw.slice(i + q.length));
+  }
+
+  function fillSelect(el, key, allLabel) {
+    var cur = el.value, vals = [];
+    data.forEach(function (r) { if (r[key] && vals.indexOf(r[key]) < 0) vals.push(r[key]); });
+    vals.sort(function (a, b) { return a.localeCompare(b, "ar"); });
+    el.innerHTML = '<option value="">' + allLabel + "</option>" + vals.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + "</option>"; }).join("");
+    if (vals.indexOf(cur) >= 0) el.value = cur;
+  }
+
+  function render() {
+    var q = norm($("q").value), qd = q.replace(/\D/g, "");
+    var fa = $("fArea").value, fp = $("fProd").value, fs = $("fStat").value;
+    var list = data.filter(function (r) {
+      if (fa && r.area !== fa) return false;
+      if (fp && r.prod !== fp) return false;
+      if (fs && status(r) !== fs) return false;
+      if (q) {
+        var byName = norm(r.name).indexOf(q) >= 0 || norm(r.shop || "").indexOf(q) >= 0;
+        var byPhone = qd.length > 0 && digits(r.phone).replace(/\D/g, "").indexOf(qd) >= 0;
+        if (!byName && !byPhone) return false;
+      }
+      return true;
+    });
+    if (sortKey) {
+      list.sort(function (a, b) {
+        var va = sortKey === "total" ? total(a) : sortKey === "left" ? left(a) : a[sortKey];
+        var vb = sortKey === "total" ? total(b) : sortKey === "left" ? left(b) : b[sortKey];
+        if (typeof va === "number" || typeof vb === "number") return ((+va || 0) - (+vb || 0)) * sortDir;
+        return String(va).localeCompare(String(vb), "ar") * sortDir;
+      });
+    }
+    var sumT = 0, sumP = 0, sumL = 0;
+    $("rows").innerHTML = list.map(function (r, i) {
+      var t = total(r), l = left(r), st = status(r);
+      sumT += t; sumP += (+r.paid || 0); sumL += l;
+      return "<tr><td class=\"idx\">" + (i + 1) + "</td>" +
+        "<td>" + hl(r.name, q) + "</td><td>" + hl(r.shop || "-", q) + "</td>" +
+        "<td class=\"phone\">" + esc(r.phone) + "</td><td>" + esc(r.area || "-") + "</td><td>" + esc(r.prod || "-") + "</td>" +
+        "<td class=\"num\">" + fmt(r.qty) + "</td><td class=\"num\">" + fmt(t) + "</td><td class=\"num\">" + fmt(+r.paid || 0) + "</td><td class=\"num\">" + fmt(l) + "</td>" +
+        "<td><span class=\"pill st-" + st + "\">" + stLabel[st] + "</span></td>" +
+        "<td><button class=\"del\" type=\"button\" data-id=\"" + r.id + "\">" + (pendingDel === r.id ? "تأكيد الحذف؟" : "حذف") + "</button></td></tr>";
+    }).join("");
+    $("empty").hidden = list.length > 0;
+    $("tCount").textContent = list.length;
+    $("tTotal").textContent = fmt(sumT) + " ج.م";
+    $("tPaid").textContent = fmt(sumP) + " ج.م";
+    $("tLeft").textContent = fmt(sumL) + " ج.م";
+    $("foot").textContent = "عرض " + list.length + " من " + data.length + " صاحب محل. الأرقام في عمود «م» تُعاد ترتيبها حسب النتائج الظاهرة.";
+  }
+
+  function refreshFilters() { fillSelect($("fArea"), "area", "كل المناطق"); fillSelect($("fProd"), "prod", "كل الأصناف"); }
+
+  ["q", "fArea", "fProd", "fStat"].forEach(function (id) { $(id).addEventListener("input", render); });
+  $("reset").addEventListener("click", function () { $("q").value = ""; $("fArea").value = ""; $("fProd").value = ""; $("fStat").value = ""; render(); });
+  document.querySelectorAll("th.sortable").forEach(function (th) {
+    th.addEventListener("click", function () {
+      var k = th.getAttribute("data-k");
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+      render();
+    });
+  });
+  $("rows").addEventListener("click", function (e) {
+    var b = e.target.closest(".del"); if (!b) return;
+    var id = +b.getAttribute("data-id");
+    if (pendingDel === id) {
+      data = data.filter(function (r) { return r.id !== id; });
+      pendingDel = null; save(); refreshFilters();
+    } else { pendingDel = id; }
+    render();
+  });
+  $("toggleAdd").addEventListener("click", function () { $("addForm").classList.toggle("open"); });
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    data.unshift({
+      id: nextId++, name: $("aName").value.trim(), shop: $("aShop").value.trim(), phone: digits($("aPhone").value).trim(),
+      area: $("aArea").value.trim(), prod: $("aProd").value.trim(), qty: +$("aQty").value || 0, price: +$("aPrice").value || 0, paid: +$("aPaid").value || 0
+    });
+    save(); e.target.reset(); $("aQty").value = 1; $("aPrice").value = 0; $("aPaid").value = 0;
+    refreshFilters(); render();
+  });
+
+  refreshFilters(); render();
+})();
+</script>
+
+</body></html>
